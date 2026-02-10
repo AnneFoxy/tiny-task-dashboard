@@ -12,5 +12,8 @@
 - Created public/index.html with JavaScript for adding, viewing, and deleting tasks using fetch API.
 - Updated server to serve the HTML on root path.
 
+## Persistence
+- Added persistence to tasks.json using fs module. Loads on start, saves on add/delete.
+
 ## Remaining Tasks
-- Add persistence option (e.g., JSON file)
+- None. All tasks completed.
