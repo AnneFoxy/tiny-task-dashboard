@@ -1,16 +1,32 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
+
+const TASKS_PATH = path.join(__dirname, 'tasks.json');
+
 let tasks = [];
-try {
-  tasks = JSON.parse(fs.readFileSync('tasks.json', 'utf8'));
-} catch (e) {}
-function saveTasks() {
-  fs.writeFileSync('tasks.json', JSON.stringify(tasks), 'utf8');
+let nextId = 1;
+
+function loadTasks() {
+  try {
+    tasks = JSON.parse(fs.readFileSync(TASKS_PATH, 'utf8')) || [];
+    const maxId = tasks.reduce((m, t) => Math.max(m, Number(t.id) || 0), 0);
+    nextId = maxId + 1;
+  } catch (e) {
+    tasks = [];
+    nextId = 1;
+  }
 }
+
+function saveTasks() {
+  fs.writeFileSync(TASKS_PATH, JSON.stringify(tasks, null, 2) + '\n', 'utf8');
+}
+
+loadTasks();
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/index.html'));
@@ -21,16 +37,34 @@ app.get('/tasks', (req, res) => {
 });
 
 app.post('/tasks', (req, res) => {
-  const task = req.body;
-  task.id = tasks.length + 1;
+  const text = String(req.body?.text ?? '').trim();
+  if (!text) return res.status(400).json({ error: 'Task text is required' });
+
+  const task = { id: nextId++, text };
   tasks.push(task);
   saveTasks();
   res.json(task);
 });
 
+app.put('/tasks/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const text = String(req.body?.text ?? '').trim();
+  if (!text) return res.status(400).json({ error: 'Task text is required' });
+
+  const task = tasks.find(t => t.id === id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  task.text = text;
+  saveTasks();
+  res.json(task);
+});
+
 app.delete('/tasks/:id', (req, res) => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(req.params.id, 10);
+  const before = tasks.length;
   tasks = tasks.filter(t => t.id !== id);
+  if (tasks.length === before) return res.status(404).json({ error: 'Task not found' });
+
   saveTasks();
   res.sendStatus(204);
 });

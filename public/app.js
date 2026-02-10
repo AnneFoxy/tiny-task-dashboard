@@ -21,6 +21,10 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
+function getTaskText(task) {
+  return (task && (task.text ?? task.title ?? task.name)) ?? '';
+}
+
 async function loadTasks() {
   const list = document.getElementById('taskList');
   list.innerHTML = '';
@@ -39,21 +43,77 @@ async function loadTasks() {
   }
 
   for (const task of tasks) {
-    const text = (task && (task.text ?? task.title ?? task.name)) ?? '';
-
-    const delBtn = el('button', { className: 'deleteBtn', type: 'button' }, 'Delete');
-    delBtn.addEventListener('click', async () => {
-      try {
-        await fetchJson(`/tasks/${task.id}`, { method: 'DELETE' });
-        await loadTasks();
-      } catch (e) {
-        alert(`Delete failed: ${e.message}`);
-      }
-    });
-
-    const li = el('li', {}, `${text} `, delBtn);
-    list.appendChild(li);
+    list.appendChild(renderTaskRow(task));
   }
+}
+
+function renderTaskRow(task) {
+  const li = el('li', { className: 'taskRow' });
+
+  const textSpan = el('span', { className: 'taskText' }, getTaskText(task));
+
+  const actions = el('div', { className: 'actions' });
+
+  const editBtn = el('button', { className: 'btn btnEdit', type: 'button' }, 'Edit');
+  const delBtn = el('button', { className: 'btn btnDelete', type: 'button' }, 'Delete');
+
+  delBtn.addEventListener('click', async () => {
+    try {
+      await fetchJson(`/tasks/${task.id}`, { method: 'DELETE' });
+      await loadTasks();
+    } catch (e) {
+      alert(`Delete failed: ${e.message}`);
+    }
+  });
+
+  editBtn.addEventListener('click', () => enterEditMode(li, task));
+
+  actions.append(editBtn, delBtn);
+  li.append(textSpan, actions);
+
+  return li;
+}
+
+function enterEditMode(li, task) {
+  li.innerHTML = '';
+
+  const input = el('input', {
+    value: getTaskText(task),
+    className: 'taskEditInput'
+  });
+
+  const actions = el('div', { className: 'actions' });
+
+  const saveBtn = el('button', { className: 'btn btnSave', type: 'button' }, 'Save');
+  const cancelBtn = el('button', { className: 'btn btnCancel', type: 'button' }, 'Cancel');
+
+  async function save() {
+    const text = (input.value || '').trim();
+    if (!text) return;
+
+    try {
+      await fetchJson(`/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      await loadTasks();
+    } catch (e) {
+      alert(`Edit failed: ${e.message}`);
+    }
+  }
+
+  saveBtn.addEventListener('click', save);
+  cancelBtn.addEventListener('click', () => loadTasks());
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') save();
+    if (e.key === 'Escape') loadTasks();
+  });
+
+  actions.append(saveBtn, cancelBtn);
+  li.append(input, actions);
+  input.focus();
+  input.select();
 }
 
 async function addTask() {
@@ -74,12 +134,13 @@ async function addTask() {
   }
 }
 
-window.addTask = addTask;
-
 document.addEventListener('DOMContentLoaded', () => {
   loadTasks();
 
   const input = document.getElementById('newTask');
+  const addBtn = document.getElementById('addBtn');
+
+  addBtn.addEventListener('click', addTask);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') addTask();
   });

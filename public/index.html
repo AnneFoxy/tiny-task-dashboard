@@ -7,10 +7,19 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Shared Tasks</h1>
-  <ul id="taskList"></ul>
-  <input id="newTask" type="text" placeholder="New task">
-  <button onclick="addTask()">Add</button>
+  <main class="container">
+    <h1>Shared Tasks</h1>
+
+    <section class="card">
+      <ul id="taskList" class="taskList"></ul>
+
+      <div class="addRow">
+        <input id="newTask" type="text" placeholder="New task" autocomplete="off">
+        <button id="addBtn" class="btn btnAdd" type="button">Add</button>
+      </div>
+    </section>
+  </main>
+
   <script src="app.js"></script>
 </body>
 </html>

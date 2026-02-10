@@ -1,7 +1,133 @@
-body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-h1 { text-align: center; }
-ul { list-style: none; padding: 0; }
-li { margin: 10px 0; padding: 10px; background: #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
-button { background: #ff4d4d; color: white; border: none; padding: 5px 10px; cursor: pointer; }
-input { flex: 1; margin-right: 10px; padding: 5px; }
-@media (max-width: 600px) { body { padding: 10px; } }
+:root {
+  --bg: #0b1020;
+  --card: #111836;
+  --text: #e9ecff;
+  --muted: #aeb6e6;
+  --row: rgba(255,255,255,0.06);
+
+  --danger: #ff4d4d;
+  --dangerHover: #e64040;
+
+  --ok: #3ddc97;
+  --okHover: #2fc688;
+
+  --info: #4d8dff;
+  --infoHover: #3b7af0;
+
+  --neutral: rgba(255,255,255,0.12);
+  --neutralHover: rgba(255,255,255,0.18);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: radial-gradient(1200px 600px at 20% 0%, #182455 0%, var(--bg) 60%);
+  color: var(--text);
+}
+
+.container {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+h1 {
+  margin: 0 0 16px 0;
+  text-align: center;
+  letter-spacing: 0.4px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.taskList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.taskRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  margin: 10px 0;
+  background: var(--row);
+  border-radius: 10px;
+}
+
+.taskText {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.actions { display: flex; gap: 8px; }
+
+.addRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+}
+
+input::placeholder { color: rgba(233,236,255,0.6); }
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  color: #08101f;
+  font-weight: 700;
+}
+
+.btnAdd, .btnSave { background: var(--ok); }
+.btnAdd:hover, .btnSave:hover { background: var(--okHover); }
+
+.btnEdit { background: var(--info); }
+.btnEdit:hover { background: var(--infoHover); }
+
+.btnDelete { background: var(--danger); }
+.btnDelete:hover { background: var(--dangerHover); }
+
+.btnCancel {
+  background: var(--neutral);
+  color: var(--text);
+}
+.btnCancel:hover { background: var(--neutralHover); }
+
+.meta {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+li.empty, li.error {
+  padding: 12px;
+  margin: 10px 0;
+  background: rgba(255,255,255,0.05);
+  border-radius: 10px;
+  color: var(--muted);
+}
+
+@media (max-width: 600px) {
+  .container { padding: 14px; }
+  .taskRow { flex-direction: column; align-items: stretch; }
+  .actions { justify-content: flex-end; }
+}
