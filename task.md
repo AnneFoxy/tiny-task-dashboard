@@ -8,6 +8,9 @@
 - Implemented in-memory tasks array.
 - Added GET /tasks, POST /tasks, DELETE /tasks/:id
 
+## Frontend
+- Created public/index.html with JavaScript for adding, viewing, and deleting tasks using fetch API.
+- Updated server to serve the HTML on root path.
+
 ## Remaining Tasks
-- Implement frontend for add/view/delete tasks (fetch from API)
 - Add persistence option (e.g., JSON file)

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Tiny Task Dashboard</title>
+</head>
+<body>
+<h1>Tasks</h1>
+<ul id="taskList"></ul>
+<input id="newTask" placeholder="New task title">
+<button onclick="addTask()">Add</button>
+<script>
+async function loadTasks() {
+  const res = await fetch('/tasks');
+  const tasks = await res.json();
+  const list = document.getElementById('taskList');
+  list.innerHTML = '';
+  tasks.forEach(t => {
+    const li = document.createElement('li');
+    li.textContent = t.title;
+    const del = document.createElement('button');
+    del.textContent = 'Delete';
+    del.onclick = () => deleteTask(t.id);
+    li.appendChild(del);
+    list.appendChild(li);
+  });
+}
+async function addTask() {
+  const input = document.getElementById('newTask');
+  const title = input.value;
+  await fetch('/tasks', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({title})
+  });
+  input.value = '';
+  loadTasks();
+}
+async function deleteTask(id) {
+  await fetch(`/tasks/${id}`, {method: 'DELETE'});
+  loadTasks();
+}
+window.onload = loadTasks;
+</script>
+</body>
+</html>

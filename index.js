@@ -1,10 +1,12 @@
 const express = require('express');
+const path = require('path');
 const app = express();
 app.use(express.json());
+app.use(express.static('public'));
 let tasks = [];
 
 app.get('/', (req, res) => {
-  res.send('Hello from Tiny Task Dashboard!');
+  res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 app.get('/tasks', (req, res) => {
