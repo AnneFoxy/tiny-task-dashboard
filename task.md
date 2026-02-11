@@ -5,5 +5,6 @@
 3. Add tags and simple filtering UI.
 4. Improve edit flow (inline save/cancel, validation).
 5. Add search box to filter tasks client-side.
+6. Organize project structure: move CSS to public/css, front-end JS to public/js, and tidy directories.
 
 Next action: implement item #1 (task completion) — done in this iteration.
