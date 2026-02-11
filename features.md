@@ -12,6 +12,7 @@ Proposed features for Tiny Task Dashboard
 - Desktop notifications for overdue tasks
 - Database support (MongoDB Atlas) — replace file-based storage with a hosted DB for persistence and multi-instance use
 - JWT-based auth (optional) — add JSON Web Token support for simple authenticated sessions and API protection
+- Realtime idea-voting (prototype) — Socket.io realtime voting UI and server; demo located at public/realtime and features/realtime-voting
 
 Chosen subset to start with:
 1. Task completion (mark tasks done)
@@ -20,3 +21,4 @@ Chosen subset to start with:
 4. Tags and basic filtering
 5. Database support (MongoDB Atlas)
 6. JWT-based auth (optional)
+7. Realtime idea-voting (prototype)
