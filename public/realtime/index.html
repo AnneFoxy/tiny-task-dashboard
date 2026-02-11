@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Realtime Idea Voting</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 1rem; background:#0f1724;color:#e6eef8 }
+    #ideaList div { margin: 0.5rem 0; padding:0.5rem; background:#142030;border-radius:6px }
+    button{margin-left:8px}
+    input{width:70%}
+  </style>
+</head>
+<body>
+  <h1>Realtime Idea Voting</h1>
+  <div>
+    <input id="ideaInput" placeholder="New idea">
+    <button id="addBtn">Add</button>
+  </div>
+  <div id="ideaList"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/voting.js"></script>
+</body>
+</html>
