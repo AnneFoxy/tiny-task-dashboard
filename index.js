@@ -33,8 +33,13 @@ app.get('/', (req, res) => {
 });
 
 app.get('/tasks', (req, res) => {
-  // Default: newest first
-  const sorted = [...tasks].sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+  // Default: incomplete first, then newest
+  const sorted = [...tasks].sort((a, b) => {
+    const ac = a.completed ? 1 : 0;
+    const bc = b.completed ? 1 : 0;
+    if (ac !== bc) return ac - bc;
+    return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
+  });
   res.json(sorted);
 });
 
@@ -42,7 +47,7 @@ app.post('/tasks', (req, res) => {
   const text = String(req.body?.text ?? '').trim();
   if (!text) return res.status(400).json({ error: 'Task text is required' });
 
-  const task = { id: nextId++, text, createdAt: Date.now(), updatedAt: Date.now() };
+  const task = { id: nextId++, text, createdAt: Date.now(), updatedAt: Date.now(), completed: false };
   tasks.push(task);
   saveTasks();
   res.json(task);
@@ -50,13 +55,20 @@ app.post('/tasks', (req, res) => {
 
 app.put('/tasks/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const text = String(req.body?.text ?? '').trim();
-  if (!text) return res.status(400).json({ error: 'Task text is required' });
-
   const task = tasks.find(t => t.id === id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  task.text = text;
+  // Allow partial updates: text and/or completed
+  if (req.body?.text !== undefined) {
+    const text = String(req.body.text ?? '').trim();
+    if (!text) return res.status(400).json({ error: 'Task text is required' });
+    task.text = text;
+  }
+
+  if (req.body?.completed !== undefined) {
+    task.completed = Boolean(req.body.completed);
+  }
+
   task.updatedAt = Date.now();
   saveTasks();
   res.json(task);

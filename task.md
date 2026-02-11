@@ -1,19 +1,9 @@
-# Tiny Task Dashboard Progress
+# Tiny Task Dashboard - Prioritized Tasks
 
-## Initial Setup
-- Created basic Express server serving "Hello" on root.
-- Git initialized and initial commit.
+1. Add task completion (mark tasks done) — backend + frontend checkbox, show completed tasks visually and sort them last.
+2. Add due dates and sort/filter by due date.
+3. Add tags and simple filtering UI.
+4. Improve edit flow (inline save/cancel, validation).
+5. Add search box to filter tasks client-side.
 
-## Backend Endpoints
-- Implemented in-memory tasks array.
-- Added GET /tasks, POST /tasks, DELETE /tasks/:id
-
-## Frontend
-- Created public/index.html with JavaScript for adding, viewing, and deleting tasks using fetch API.
-- Updated server to serve the HTML on root path.
-
-## Persistence
-- Added persistence to tasks.json using fs module. Loads on start, saves on add/delete.
-
-## Remaining Tasks
-- None. All tasks completed.
+Next action: implement item #1 (task completion) — done in this iteration.

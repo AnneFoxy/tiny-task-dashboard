@@ -89,14 +89,32 @@ function renderTaskRow(task) {
   const li = el('li', { className: 'taskRow' });
 
   const left = el('div', { className: 'taskLeft' });
+  const checkbox = el('input', { type: 'checkbox', className: 'taskCheck', checked: Boolean(task.completed) });
   const textSpan = el('div', { className: 'taskText' }, getTaskText(task));
+  if (task.completed) textSpan.style.textDecoration = 'line-through';
   const meta = el('div', { className: 'taskMeta' }, formatTime(task.updatedAt || task.createdAt));
-  left.append(textSpan, meta);
+  left.append(checkbox, textSpan, meta);
 
   const actions = el('div', { className: 'actions' });
 
   const editBtn = el('button', { className: 'btn btnEdit', type: 'button' }, 'Edit');
   const delBtn = el('button', { className: 'btn btnDelete', type: 'button' }, 'Delete');
+
+  checkbox.addEventListener('change', async () => {
+    try {
+      await fetchJson(`/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: checkbox.checked })
+      });
+      toast(checkbox.checked ? 'Completed' : 'Marked active', 'ok');
+      await loadTasks();
+    } catch (e) {
+      toast('Update failed', 'err');
+      alert(`Update failed: ${e.message}`);
+      checkbox.checked = !checkbox.checked;
+    }
+  });
 
   delBtn.addEventListener('click', async () => {
     setBusy(delBtn, true, 'Deleting…');
