@@ -10,9 +10,11 @@ Proposed features for Tiny Task Dashboard
 - Simple user sessions (no auth) to remember view prefs
 - Drag to reorder (priority)
 - Desktop notifications for overdue tasks
+- Database support (MongoDB Atlas) — replace file-based storage with a hosted DB for persistence and multi-instance use
 
 Chosen subset to start with:
 1. Task completion (mark tasks done)
 2. Edit task text in-place (already present but polish)
 3. Due dates and sorting by due date
 4. Tags and basic filtering
+5. Database support (MongoDB Atlas)
