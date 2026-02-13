@@ -33,11 +33,30 @@ app.get('/', (req, res) => {
 });
 
 app.get('/tasks', (req, res) => {
-  // Default: incomplete first, then newest
-  const sorted = [...tasks].sort((a, b) => {
+  // Support optional filters: filter=all|due_soon|overdue|no_due
+  // Default: incomplete first, then by dueDate (earliest), then newest
+  const filter = String(req.query.filter || 'all');
+  const now = Date.now();
+
+  let list = [...tasks];
+
+  if (filter === 'due_soon') {
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    list = list.filter(t => t.dueDate && !t.completed && (Number(t.dueDate) - now) <= weekMs && (Number(t.dueDate) - now) >= 0);
+  } else if (filter === 'overdue') {
+    list = list.filter(t => t.dueDate && !t.completed && Number(t.dueDate) < now);
+  } else if (filter === 'no_due') {
+    list = list.filter(t => !t.dueDate);
+  }
+
+  const sorted = list.sort((a, b) => {
     const ac = a.completed ? 1 : 0;
     const bc = b.completed ? 1 : 0;
     if (ac !== bc) return ac - bc;
+    // compare dueDate (earliest first). If missing, treat as Infinity
+    const ad = a.dueDate ? Number(a.dueDate) : Infinity;
+    const bd = b.dueDate ? Number(b.dueDate) : Infinity;
+    if (ad !== bd) return ad - bd;
     return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
   });
   res.json(sorted);
@@ -47,7 +66,9 @@ app.post('/tasks', (req, res) => {
   const text = String(req.body?.text ?? '').trim();
   if (!text) return res.status(400).json({ error: 'Task text is required' });
 
-  const task = { id: nextId++, text, createdAt: Date.now(), updatedAt: Date.now(), completed: false };
+  const due = req.body?.dueDate ? Number(new Date(req.body.dueDate)) : null;
+
+  const task = { id: nextId++, text, createdAt: Date.now(), updatedAt: Date.now(), completed: false, dueDate: due };
   tasks.push(task);
   saveTasks();
   res.json(task);
@@ -58,7 +79,7 @@ app.put('/tasks/:id', (req, res) => {
   const task = tasks.find(t => t.id === id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  // Allow partial updates: text and/or completed
+  // Allow partial updates: text and/or completed and/or dueDate
   if (req.body?.text !== undefined) {
     const text = String(req.body.text ?? '').trim();
     if (!text) return res.status(400).json({ error: 'Task text is required' });
@@ -67,6 +88,10 @@ app.put('/tasks/:id', (req, res) => {
 
   if (req.body?.completed !== undefined) {
     task.completed = Boolean(req.body.completed);
+  }
+
+  if (req.body?.dueDate !== undefined) {
+    task.dueDate = req.body.dueDate ? Number(new Date(req.body.dueDate)) : null;
   }
 
   task.updatedAt = Date.now();

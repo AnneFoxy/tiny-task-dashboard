@@ -93,7 +93,15 @@ function renderTaskRow(task) {
   const textSpan = el('div', { className: 'taskText' }, getTaskText(task));
   if (task.completed) textSpan.style.textDecoration = 'line-through';
   const meta = el('div', { className: 'taskMeta' }, formatTime(task.updatedAt || task.createdAt));
-  left.append(checkbox, textSpan, meta);
+  // due date display
+  const dueSpan = el('div', { className: 'taskDue' }, task.dueDate ? new Date(Number(task.dueDate)).toLocaleDateString() : '');
+  // overdue styling
+  if (task.dueDate && !task.completed && Number(task.dueDate) < Date.now()) {
+    dueSpan.style.color = '#ff6b6b';
+    dueSpan.textContent += ' • Overdue';
+    li.style.boxShadow = '0 0 0 2px rgba(255,107,107,0.06)';
+  }
+  left.append(checkbox, textSpan, meta, dueSpan);
 
   const actions = el('div', { className: 'actions' });
 
@@ -146,6 +154,13 @@ function enterEditMode(li, task) {
     className: 'taskEditInput'
   });
 
+  const dueInput = el('input', {
+    type: 'date',
+    value: task.dueDate ? new Date(Number(task.dueDate)).toISOString().slice(0,10) : '' ,
+    className: 'taskDueInput',
+    style: 'margin-left:8px'
+  });
+
   const actions = el('div', { className: 'actions' });
 
   const saveBtn = el('button', { className: 'btn btnSave', type: 'button' }, 'Save');
@@ -155,12 +170,14 @@ function enterEditMode(li, task) {
     const text = (input.value || '').trim();
     if (!text) return;
 
+    const due = dueInput.value ? new Date(dueInput.value).toISOString() : null;
+
     setBusy(saveBtn, true, 'Saving…');
     try {
       await fetchJson(`/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text, dueDate: due })
       });
       toast('Saved', 'ok');
       await loadTasks();
@@ -180,7 +197,7 @@ function enterEditMode(li, task) {
   });
 
   actions.append(saveBtn, cancelBtn);
-  li.append(input, actions);
+  li.append(input, dueInput, actions);
   input.focus();
   input.select();
 }
@@ -188,17 +205,21 @@ function enterEditMode(li, task) {
 async function addTask() {
   const input = document.getElementById('newTask');
   const addBtn = document.getElementById('addBtn');
+  const dueEl = document.getElementById('newDue');
   const text = (input.value || '').trim();
   if (!text) return;
+
+  const due = dueEl.value ? new Date(dueEl.value).toISOString() : null;
 
   setBusy(addBtn, true, 'Adding…');
   try {
     await fetchJson('/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text, dueDate: due })
     });
     input.value = '';
+    dueEl.value = '';
     toast('Added', 'ok');
     await loadTasks();
   } catch (e) {
