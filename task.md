@@ -1,7 +1,7 @@
 # Tiny Task Dashboard - Prioritized Tasks
 
 1. Add task completion (mark tasks done) — backend + frontend checkbox, show completed tasks visually and sort them last. — DONE
-2. Add due dates and sort/filter by due date.
+2. Add due dates and sort/filter by due date. — DONE
 3. Add tags and simple filtering UI.
 4. Improve edit flow (inline save/cancel, validation).
 5. Add search box to filter tasks client-side.
@@ -10,4 +10,4 @@
 
 Notes:
 - Task completion was already implemented in the backend (completed flag + PUT /tasks/:id) and frontend (checkbox, line-through, and update flow). Verified code paths and tasks.json contain completed entries. No server changes required.
-- Next action: implement due dates (item #2).
+- Due dates implemented: backend accepts dueDate (ISO or timestamp), stores as number; frontend UI includes date input on create/edit, displays due date, highlights overdue items, and supports filters (due_soon/overdue/no_due).
