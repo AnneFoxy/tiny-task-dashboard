@@ -1,65 +1,89 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const Database = require('better-sqlite3');
 
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-const TASKS_PATH = path.join(__dirname, 'tasks.json');
+const DB_PATH = path.join(__dirname, 'tasks.db');
+const JSON_PATH = path.join(__dirname, 'tasks.json');
 
-let tasks = [];
-let nextId = 1;
+// Initialize SQLite DB and table
+const db = new Database(DB_PATH);
+db.exec(`
+CREATE TABLE IF NOT EXISTS tasks (
+  id INTEGER PRIMARY KEY,
+  text TEXT NOT NULL,
+  createdAt INTEGER NOT NULL,
+  updatedAt INTEGER NOT NULL,
+  completed INTEGER NOT NULL DEFAULT 0,
+  dueDate INTEGER
+);
+`);
 
-function loadTasks() {
+function migrateJsonIfNeeded() {
+  if (!fs.existsSync(JSON_PATH)) return;
   try {
-    tasks = JSON.parse(fs.readFileSync(TASKS_PATH, 'utf8')) || [];
-    const maxId = tasks.reduce((m, t) => Math.max(m, Number(t.id) || 0), 0);
-    nextId = maxId + 1;
+    const raw = fs.readFileSync(JSON_PATH, 'utf8');
+    const arr = JSON.parse(raw || '[]');
+    if (!Array.isArray(arr) || arr.length === 0) return;
+
+    // Check whether DB already has rows
+    const row = db.prepare('SELECT COUNT(1) as c FROM tasks').get();
+    if (row && row.c > 0) return; // assume already migrated
+
+    const insert = db.prepare('INSERT INTO tasks (id, text, createdAt, updatedAt, completed, dueDate) VALUES (@id, @text, @createdAt, @updatedAt, @completed, @dueDate)');
+    const now = Date.now();
+    const txn = db.transaction((items) => {
+      for (const it of items) {
+        const task = {
+          id: Number(it.id) || null,
+          text: String(it.text || '').trim() || 'Untitled',
+          createdAt: Number(it.createdAt) || now,
+          updatedAt: Number(it.updatedAt) || Number(it.createdAt) || now,
+          completed: it.completed ? 1 : 0,
+          dueDate: it.dueDate ? Number(it.dueDate) : null
+        };
+        insert.run(task);
+      }
+    });
+    txn(arr);
+    console.log('Migrated', arr.length, 'tasks from tasks.json into SQLite');
+    // keep JSON as backup; do not delete
   } catch (e) {
-    tasks = [];
-    nextId = 1;
+    console.error('Migration failed:', e);
   }
 }
 
-function saveTasks() {
-  fs.writeFileSync(TASKS_PATH, JSON.stringify(tasks, null, 2) + '\n', 'utf8');
-}
+migrateJsonIfNeeded();
 
-loadTasks();
+// helpers
+const getAllStmt = db.prepare('SELECT id, text, createdAt, updatedAt, completed, dueDate FROM tasks');
+const getAllSortedStmt = db.prepare('SELECT id, text, createdAt, updatedAt, completed, dueDate FROM tasks ORDER BY completed ASC, COALESCE(dueDate, 9999999999999) ASC, createdAt DESC');
+const getById = db.prepare('SELECT id, text, createdAt, updatedAt, completed, dueDate FROM tasks WHERE id = ?');
+const insertStmt = db.prepare('INSERT INTO tasks (text, createdAt, updatedAt, completed, dueDate) VALUES (?, ?, ?, ?, ?)');
+const updateStmt = db.prepare('UPDATE tasks SET text = ?, updatedAt = ?, completed = ?, dueDate = ? WHERE id = ?');
+const deleteStmt = db.prepare('DELETE FROM tasks WHERE id = ?');
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 app.get('/tasks', (req, res) => {
-  // Support optional filters: filter=all|due_soon|overdue|no_due
-  // Default: incomplete first, then by dueDate (earliest), then newest
-  const filter = String(req.query.filter || 'all');
-  const now = Date.now();
+  // fetch all and apply ordering on server: incomplete first, then by dueDate (earliest), then newest createdAt
+  const rows = getAllSortedStmt.all();
+  const tasks = rows.map(r => ({
+    id: r.id,
+    text: r.text,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    completed: Boolean(r.completed),
+    dueDate: r.dueDate === null ? null : r.dueDate
+  }));
 
-  let list = [...tasks];
-
-  if (filter === 'due_soon') {
-    const weekMs = 7 * 24 * 60 * 60 * 1000;
-    list = list.filter(t => t.dueDate && !t.completed && (Number(t.dueDate) - now) <= weekMs && (Number(t.dueDate) - now) >= 0);
-  } else if (filter === 'overdue') {
-    list = list.filter(t => t.dueDate && !t.completed && Number(t.dueDate) < now);
-  } else if (filter === 'no_due') {
-    list = list.filter(t => !t.dueDate);
-  }
-
-  const sorted = list.sort((a, b) => {
-    const ac = a.completed ? 1 : 0;
-    const bc = b.completed ? 1 : 0;
-    if (ac !== bc) return ac - bc;
-    // compare dueDate (earliest first). If missing, treat as Infinity
-    const ad = a.dueDate ? Number(a.dueDate) : Infinity;
-    const bd = b.dueDate ? Number(b.dueDate) : Infinity;
-    if (ad !== bd) return ad - bd;
-    return (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
-  });
-  res.json(sorted);
+  res.json(tasks);
 });
 
 app.post('/tasks', (req, res) => {
@@ -67,48 +91,44 @@ app.post('/tasks', (req, res) => {
   if (!text) return res.status(400).json({ error: 'Task text is required' });
 
   const due = req.body?.dueDate ? Number(new Date(req.body.dueDate)) : null;
-
-  const task = { id: nextId++, text, createdAt: Date.now(), updatedAt: Date.now(), completed: false, dueDate: due };
-  tasks.push(task);
-  saveTasks();
-  res.json(task);
+  const now = Date.now();
+  const info = insertStmt.run(text, now, now, 0, due);
+  const id = info.lastInsertRowid;
+  const task = getById.get(id);
+  res.json({ id: task.id, text: task.text, createdAt: task.createdAt, updatedAt: task.updatedAt, completed: Boolean(task.completed), dueDate: task.dueDate });
 });
 
 app.put('/tasks/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const task = tasks.find(t => t.id === id);
-  if (!task) return res.status(404).json({ error: 'Task not found' });
+  const existing = getById.get(id);
+  if (!existing) return res.status(404).json({ error: 'Task not found' });
 
-  // Allow partial updates: text and/or completed and/or dueDate
-  if (req.body?.text !== undefined) {
-    const text = String(req.body.text ?? '').trim();
-    if (!text) return res.status(400).json({ error: 'Task text is required' });
-    task.text = text;
-  }
+  // Allow partial updates
+  const text = req.body?.text !== undefined ? String(req.body.text ?? '').trim() : existing.text;
+  if (text === '') return res.status(400).json({ error: 'Task text is required' });
 
-  if (req.body?.completed !== undefined) {
-    task.completed = Boolean(req.body.completed);
-  }
+  const completed = req.body?.completed !== undefined ? (req.body.completed ? 1 : 0) : (existing.completed ? 1 : 0);
+  const dueDate = req.body?.dueDate !== undefined ? (req.body.dueDate ? Number(new Date(req.body.dueDate)) : null) : existing.dueDate;
+  const now = Date.now();
 
-  if (req.body?.dueDate !== undefined) {
-    task.dueDate = req.body.dueDate ? Number(new Date(req.body.dueDate)) : null;
-  }
-
-  task.updatedAt = Date.now();
-  saveTasks();
-  res.json(task);
+  updateStmt.run(text, now, completed, dueDate, id);
+  const task = getById.get(id);
+  res.json({ id: task.id, text: task.text, createdAt: task.createdAt, updatedAt: task.updatedAt, completed: Boolean(task.completed), dueDate: task.dueDate });
 });
 
 app.delete('/tasks/:id', (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const before = tasks.length;
-  tasks = tasks.filter(t => t.id !== id);
-  if (tasks.length === before) return res.status(404).json({ error: 'Task not found' });
-
-  saveTasks();
+  const info = deleteStmt.run(id);
+  if (info.changes === 0) return res.status(404).json({ error: 'Task not found' });
   res.sendStatus(204);
 });
 
-app.listen(3000, () => {
+const listener = app.listen(3000, () => {
   console.log('Server running on port 3000');
+});
+
+// graceful shutdown: close DB
+process.on('SIGINT', () => {
+  try { db.close(); } catch (e) {}
+  listener.close(() => process.exit(0));
 });

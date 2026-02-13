@@ -63,6 +63,25 @@ function setBusy(btn, busy, textWhenBusy) {
   }
 }
 
+function debounce(fn, wait = 200) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function highlight(text, query) {
+  if (!query) return escapeHtml(text);
+  const q = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(q, 'ig');
+  return escapeHtml(text).replace(re, m => `<mark>${m}</mark>`);
+}
+
 async function loadTasks() {
   const list = document.getElementById('taskList');
   list.innerHTML = '';
@@ -75,22 +94,52 @@ async function loadTasks() {
     return;
   }
 
-  if (!tasks.length) {
-    list.appendChild(el('li', { className: 'empty' }, 'No tasks yet.'));
+  const search = (document.getElementById('searchBox')?.value || '').trim().toLowerCase();
+  const filterSelect = document.getElementById('filterSelect');
+  const filter = filterSelect ? String(filterSelect.value || 'all') : 'all';
+
+  // apply server-side style filters locally (we already fetched all tasks)
+  const now = Date.now();
+  let listToRender = tasks.slice();
+
+  if (filter === 'due_soon') {
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    listToRender = listToRender.filter(t => t.dueDate && !t.completed && (Number(t.dueDate) - now) <= weekMs && (Number(t.dueDate) - now) >= 0);
+  } else if (filter === 'overdue') {
+    listToRender = listToRender.filter(t => t.dueDate && !t.completed && Number(t.dueDate) < now);
+  } else if (filter === 'no_due') {
+    listToRender = listToRender.filter(t => !t.dueDate);
+  }
+
+  if (search) {
+    listToRender = listToRender.filter(t => getTaskText(t).toLowerCase().includes(search));
+  }
+
+  if (!listToRender.length) {
+    list.appendChild(el('li', { className: 'empty' }, 'No tasks match.'));
     return;
   }
 
-  for (const task of tasks) {
-    list.appendChild(renderTaskRow(task));
+  for (const task of listToRender) {
+    list.appendChild(renderTaskRow(task, search));
   }
 }
 
-function renderTaskRow(task) {
+function renderTaskRow(task, search = '') {
   const li = el('li', { className: 'taskRow' });
 
   const left = el('div', { className: 'taskLeft' });
   const checkbox = el('input', { type: 'checkbox', className: 'taskCheck', checked: Boolean(task.completed) });
-  const textSpan = el('div', { className: 'taskText' }, getTaskText(task));
+
+  const textSpan = el('div', { className: 'taskText' });
+  // insert highlighted HTML
+  const txt = getTaskText(task);
+  if (search && txt.toLowerCase().includes(search)) {
+    textSpan.innerHTML = highlight(txt, search);
+  } else {
+    textSpan.textContent = txt;
+  }
+
   if (task.completed) textSpan.style.textDecoration = 'line-through';
   const meta = el('div', { className: 'taskMeta' }, formatTime(task.updatedAt || task.createdAt));
   // due date display
@@ -239,5 +288,20 @@ document.addEventListener('DOMContentLoaded', () => {
   addBtn.addEventListener('click', addTask);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') addTask();
+  });
+
+  const filter = document.getElementById('filterSelect');
+  if (filter) filter.addEventListener('change', () => loadTasks());
+
+  const search = document.getElementById('searchBox');
+  if (search) search.addEventListener('input', debounce(() => loadTasks(), 150));
+
+  // keyboard shortcut: '/' focuses search
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement.tagName.toLowerCase() !== 'input') {
+      e.preventDefault();
+      const s = document.getElementById('searchBox');
+      if (s) s.focus();
+    }
   });
 });
