@@ -11,12 +11,41 @@
 6. Organize project structure: move CSS to public/css, front-end JS to public/js, and tidy directories. — TODO
 7. Prototype emergent mechanic: pick one mechanic and prototype a small emergent interaction loop; rapid playtests and gather feedback. — TODO
 
-Recent actions (2026-02-13):
-- Migrated existing tasks.json into SQLite (tasks.db) on startup; tasks.json left as backup. Migration logged: "Migrated 5 tasks from tasks.json into SQLite".
-- Server now sorts tasks before returning them to the client: incomplete → dueDate (earliest) → createdAt (newest last for tie-breaker).
-- Added client-side search box and highlighting; debounce and keyboard shortcut implemented.
-- Server is running at http://187.77.4.202:3000 for testing.
+---
 
-What I need from you:
-- Confirm whether to keep tasks.json backup or delete it after backing up elsewhere.
-- Approve starting task #3 (tags + UI) so I can implement and wire filters.
+Repository/hardening & backend best-practices (new backlog items requested by Roger on 2026-02-13)
+
+A. Robust input validation & centralized error handling — TODO
+   - Validate request payloads (text length, dueDate format).
+   - Centralize JSON error responses { error, code } and catch unexpected exceptions.
+
+B. Add explicit migrations/versioning — TODO
+   - Add schema_version/migrations table and runner for idempotent migrations.
+
+C. Ensure transactional guarantees where needed — TODO
+   - Wrap multi-statement operations in db.transaction where appropriate.
+
+D. Automated backups & durability — TODO
+   - Add automated DB snapshots (rotate last N backups) and possibly a /backup endpoint.
+
+E. Logging & observability — TODO
+   - Add structured logging (pino/winston), request logging (morgan), and /health endpoint.
+
+F. Multi-instance readiness / scalability plan — TODO
+   - Evaluate moving to Postgres or hosted DB if horizontal scaling is needed.
+
+G. Security & hardening — TODO
+   - Helmet/secure headers, CORS policy, rate limiting, optional JWT/basic auth, sanitize outputs.
+
+H. Tests & CI — TODO
+   - Add unit/integration tests (jest/supertest) and GitHub Actions to run tests on push.
+
+I. Configuration & secrets management — TODO
+   - Use env vars (PORT, DB_PATH), add .env.example, and avoid hard-coded paths.
+
+J. Code layout & maintainability — TODO
+   - Split server into modules (db.js, routes/tasks.js), add linting, prettier, and package scripts.
+
+Notes:
+- These items were added to the backlog per your request and can be implemented in priority order; I recommend starting with A (validation + centralized errors), then B (migrations), then D (backups), then H (tests/CI).
+- Tell me which item to pick first or if you want me to break any item into smaller tickets with estimated time.
