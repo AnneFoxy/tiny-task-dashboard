@@ -97,6 +97,10 @@ async function loadTasks() {
   const search = (document.getElementById('searchBox')?.value || '').trim().toLowerCase();
   const filterSelect = document.getElementById('filterSelect');
   const filter = filterSelect ? String(filterSelect.value || 'all') : 'all';
+  const tagFilter = document.getElementById('tagFilter')?.value || '';
+
+  // populate tag filter options from tasks
+  populateTagFilter(tasks);
 
   // apply server-side style filters locally (we already fetched all tasks)
   const now = Date.now();
@@ -111,6 +115,10 @@ async function loadTasks() {
     listToRender = listToRender.filter(t => !t.dueDate);
   }
 
+  if (tagFilter) {
+    listToRender = listToRender.filter(t => Array.isArray(t.tags) && t.tags.includes(tagFilter));
+  }
+
   if (search) {
     listToRender = listToRender.filter(t => getTaskText(t).toLowerCase().includes(search));
   }
@@ -123,6 +131,22 @@ async function loadTasks() {
   for (const task of listToRender) {
     list.appendChild(renderTaskRow(task, search));
   }
+}
+
+function populateTagFilter(tasks) {
+  const sel = document.getElementById('tagFilter');
+  if (!sel) return;
+  const seen = new Set();
+  for (const t of tasks) {
+    if (Array.isArray(t.tags)) for (const tag of t.tags) seen.add(String(tag));
+  }
+  const tags = Array.from(seen).sort();
+  // preserve previous value
+  const prev = sel.value;
+  sel.innerHTML = '';
+  sel.appendChild(el('option', { value: '' }, '(any)'));
+  for (const tag of tags) sel.appendChild(el('option', { value: tag }, tag));
+  if (tags.includes(prev)) sel.value = prev;
 }
 
 function renderTaskRow(task, search = '') {
@@ -144,13 +168,22 @@ function renderTaskRow(task, search = '') {
   const meta = el('div', { className: 'taskMeta' }, formatTime(task.updatedAt || task.createdAt));
   // due date display
   const dueSpan = el('div', { className: 'taskDue' }, task.dueDate ? new Date(Number(task.dueDate)).toLocaleDateString() : '');
+  // tags display
+  const tagsDiv = el('div', { className: 'taskTags' });
+  if (Array.isArray(task.tags) && task.tags.length) {
+    for (const tag of task.tags) {
+      const b = el('span', { className: 'tagBadge' }, String(tag));
+      tagsDiv.appendChild(b);
+    }
+  }
+
   // overdue styling
   if (task.dueDate && !task.completed && Number(task.dueDate) < Date.now()) {
     dueSpan.style.color = '#ff6b6b';
     dueSpan.textContent += ' • Overdue';
     li.style.boxShadow = '0 0 0 2px rgba(255,107,107,0.06)';
   }
-  left.append(checkbox, textSpan, meta, dueSpan);
+  left.append(checkbox, textSpan, meta, dueSpan, tagsDiv);
 
   const actions = el('div', { className: 'actions' });
 
@@ -210,6 +243,13 @@ function enterEditMode(li, task) {
     style: 'margin-left:8px'
   });
 
+  const tagsInput = el('input', {
+    type: 'text',
+    value: Array.isArray(task.tags) ? task.tags.join(', ') : '',
+    placeholder: 'tags (comma-separated)',
+    style: 'margin-left:8px'
+  });
+
   const actions = el('div', { className: 'actions' });
 
   const saveBtn = el('button', { className: 'btn btnSave', type: 'button' }, 'Save');
@@ -220,13 +260,14 @@ function enterEditMode(li, task) {
     if (!text) return;
 
     const due = dueInput.value ? new Date(dueInput.value).toISOString() : null;
+    const tags = (tagsInput.value || '').split(',').map(s => s.trim()).filter(Boolean);
 
     setBusy(saveBtn, true, 'Saving…');
     try {
       await fetchJson(`/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, dueDate: due })
+        body: JSON.stringify({ text, dueDate: due, tags })
       });
       toast('Saved', 'ok');
       await loadTasks();
@@ -246,7 +287,7 @@ function enterEditMode(li, task) {
   });
 
   actions.append(saveBtn, cancelBtn);
-  li.append(input, dueInput, actions);
+  li.append(input, dueInput, tagsInput, actions);
   input.focus();
   input.select();
 }
@@ -255,20 +296,23 @@ async function addTask() {
   const input = document.getElementById('newTask');
   const addBtn = document.getElementById('addBtn');
   const dueEl = document.getElementById('newDue');
+  const tagsEl = document.getElementById('newTags');
   const text = (input.value || '').trim();
   if (!text) return;
 
   const due = dueEl.value ? new Date(dueEl.value).toISOString() : null;
+  const tags = (tagsEl.value || '').split(',').map(s => s.trim()).filter(Boolean);
 
   setBusy(addBtn, true, 'Adding…');
   try {
     await fetchJson('/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, dueDate: due })
+      body: JSON.stringify({ text, dueDate: due, tags })
     });
     input.value = '';
     dueEl.value = '';
+    tagsEl.value = '';
     toast('Added', 'ok');
     await loadTasks();
   } catch (e) {
@@ -292,6 +336,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const filter = document.getElementById('filterSelect');
   if (filter) filter.addEventListener('change', () => loadTasks());
+
+  const tagFilter = document.getElementById('tagFilter');
+  if (tagFilter) tagFilter.addEventListener('change', () => loadTasks());
 
   const search = document.getElementById('searchBox');
   if (search) search.addEventListener('input', debounce(() => loadTasks(), 150));
