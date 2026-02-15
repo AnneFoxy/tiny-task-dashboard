@@ -19,6 +19,7 @@
       <div class="addRow">
         <input id="newTask" type="text" placeholder="New task" autocomplete="off">
         <input id="newDue" type="date" style="margin-left:8px">
+        <input id="newTags" type="text" placeholder="tags (comma-separated)" style="margin-left:8px">
         <button id="addBtn" class="btn btnAdd" type="button">Add</button>
       </div>
       <div class="filterRow" style="margin-top:8px">
@@ -28,6 +29,11 @@
           <option value="due_soon">Due soon (7d)</option>
           <option value="overdue">Overdue</option>
           <option value="no_due">No due date</option>
+        </select>
+
+        <label for="tagFilter" style="margin-left:12px">Tag:</label>
+        <select id="tagFilter" style="margin-left:8px">
+          <option value="">(any)</option>
         </select>
       </div>
 
