@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   createdAt INTEGER NOT NULL,
   updatedAt INTEGER NOT NULL,
   completed INTEGER NOT NULL DEFAULT 0,
-  dueDate INTEGER
+  dueDate INTEGER,
+  tags TEXT
 );
 `);
 
@@ -34,7 +35,7 @@ function migrateJsonIfNeeded() {
     const row = db.prepare('SELECT COUNT(1) as c FROM tasks').get();
     if (row && row.c > 0) return; // assume already migrated
 
-    const insert = db.prepare('INSERT INTO tasks (id, text, createdAt, updatedAt, completed, dueDate) VALUES (@id, @text, @createdAt, @updatedAt, @completed, @dueDate)');
+    const insert = db.prepare('INSERT INTO tasks (id, text, createdAt, updatedAt, completed, dueDate, tags) VALUES (@id, @text, @createdAt, @updatedAt, @completed, @dueDate, @tags)');
     const now = Date.now();
     const txn = db.transaction((items) => {
       for (const it of items) {
@@ -44,7 +45,8 @@ function migrateJsonIfNeeded() {
           createdAt: Number(it.createdAt) || now,
           updatedAt: Number(it.updatedAt) || Number(it.createdAt) || now,
           completed: it.completed ? 1 : 0,
-          dueDate: it.dueDate ? Number(it.dueDate) : null
+          dueDate: it.dueDate ? Number(it.dueDate) : null,
+          tags: it.tags ? JSON.stringify(it.tags) : null
         };
         insert.run(task);
       }
@@ -60,11 +62,11 @@ function migrateJsonIfNeeded() {
 migrateJsonIfNeeded();
 
 // helpers
-const getAllStmt = db.prepare('SELECT id, text, createdAt, updatedAt, completed, dueDate FROM tasks');
-const getAllSortedStmt = db.prepare('SELECT id, text, createdAt, updatedAt, completed, dueDate FROM tasks ORDER BY completed ASC, COALESCE(dueDate, 9999999999999) ASC, createdAt DESC');
-const getById = db.prepare('SELECT id, text, createdAt, updatedAt, completed, dueDate FROM tasks WHERE id = ?');
-const insertStmt = db.prepare('INSERT INTO tasks (text, createdAt, updatedAt, completed, dueDate) VALUES (?, ?, ?, ?, ?)');
-const updateStmt = db.prepare('UPDATE tasks SET text = ?, updatedAt = ?, completed = ?, dueDate = ? WHERE id = ?');
+const getAllStmt = db.prepare('SELECT id, text, createdAt, updatedAt, completed, dueDate, tags FROM tasks');
+const getAllSortedStmt = db.prepare('SELECT id, text, createdAt, updatedAt, completed, dueDate, tags FROM tasks ORDER BY completed ASC, COALESCE(dueDate, 9999999999999) ASC, createdAt DESC');
+const getById = db.prepare('SELECT id, text, createdAt, updatedAt, completed, dueDate, tags FROM tasks WHERE id = ?');
+const insertStmt = db.prepare('INSERT INTO tasks (text, createdAt, updatedAt, completed, dueDate, tags) VALUES (?, ?, ?, ?, ?, ?)');
+const updateStmt = db.prepare('UPDATE tasks SET text = ?, updatedAt = ?, completed = ?, dueDate = ?, tags = ? WHERE id = ?');
 const deleteStmt = db.prepare('DELETE FROM tasks WHERE id = ?');
 
 app.get('/', (req, res) => {
@@ -80,7 +82,8 @@ app.get('/tasks', (req, res) => {
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     completed: Boolean(r.completed),
-    dueDate: r.dueDate === null ? null : r.dueDate
+    dueDate: r.dueDate === null ? null : r.dueDate,
+    tags: r.tags ? JSON.parse(r.tags) : []
   }));
 
   res.json(tasks);
@@ -91,11 +94,12 @@ app.post('/tasks', (req, res) => {
   if (!text) return res.status(400).json({ error: 'Task text is required' });
 
   const due = req.body?.dueDate ? Number(new Date(req.body.dueDate)) : null;
+  const tags = Array.isArray(req.body?.tags) ? JSON.stringify(req.body.tags.filter(Boolean)) : null;
   const now = Date.now();
-  const info = insertStmt.run(text, now, now, 0, due);
+  const info = insertStmt.run(text, now, now, 0, due, tags);
   const id = info.lastInsertRowid;
   const task = getById.get(id);
-  res.json({ id: task.id, text: task.text, createdAt: task.createdAt, updatedAt: task.updatedAt, completed: Boolean(task.completed), dueDate: task.dueDate });
+  res.json({ id: task.id, text: task.text, createdAt: task.createdAt, updatedAt: task.updatedAt, completed: Boolean(task.completed), dueDate: task.dueDate, tags: task.tags ? JSON.parse(task.tags) : [] });
 });
 
 app.put('/tasks/:id', (req, res) => {
@@ -109,11 +113,12 @@ app.put('/tasks/:id', (req, res) => {
 
   const completed = req.body?.completed !== undefined ? (req.body.completed ? 1 : 0) : (existing.completed ? 1 : 0);
   const dueDate = req.body?.dueDate !== undefined ? (req.body.dueDate ? Number(new Date(req.body.dueDate)) : null) : existing.dueDate;
+  const tags = req.body?.tags !== undefined ? (Array.isArray(req.body.tags) ? JSON.stringify(req.body.tags.filter(Boolean)) : null) : existing.tags;
   const now = Date.now();
 
-  updateStmt.run(text, now, completed, dueDate, id);
+  updateStmt.run(text, now, completed, dueDate, tags, id);
   const task = getById.get(id);
-  res.json({ id: task.id, text: task.text, createdAt: task.createdAt, updatedAt: task.updatedAt, completed: Boolean(task.completed), dueDate: task.dueDate });
+  res.json({ id: task.id, text: task.text, createdAt: task.createdAt, updatedAt: task.updatedAt, completed: Boolean(task.completed), dueDate: task.dueDate, tags: task.tags ? JSON.parse(task.tags) : [] });
 });
 
 app.delete('/tasks/:id', (req, res) => {
