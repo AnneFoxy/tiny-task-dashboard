@@ -19,10 +19,23 @@ CREATE TABLE IF NOT EXISTS tasks (
   createdAt INTEGER NOT NULL,
   updatedAt INTEGER NOT NULL,
   completed INTEGER NOT NULL DEFAULT 0,
-  dueDate INTEGER,
-  tags TEXT
+  dueDate INTEGER
 );
 `);
+
+// Ensure tags column exists (for older DBs)
+(function ensureTagsColumn() {
+  try {
+    const info = db.prepare("PRAGMA table_info('tasks')").all();
+    const hasTags = info.some(r => r.name === 'tags');
+    if (!hasTags) {
+      db.exec("ALTER TABLE tasks ADD COLUMN tags TEXT;");
+      console.log('Added tags column to tasks table');
+    }
+  } catch (e) {
+    console.warn('Failed to ensure tags column:', e.message);
+  }
+})();
 
 function migrateJsonIfNeeded() {
   if (!fs.existsSync(JSON_PATH)) return;
